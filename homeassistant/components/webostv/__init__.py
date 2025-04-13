@@ -19,10 +19,9 @@ from homeassistant.const import (
     CONF_NAME,
     EVENT_HOMEASSISTANT_STOP,
 )
-from homeassistant.core import Event, HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall, SupportsResponse, ServiceResponse
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_validation as cv, discovery
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -50,6 +49,7 @@ class ServiceMethodDetails(NamedTuple):
 
     method: str
     schema: vol.Schema
+    supports_response: SupportsResponse
 
 
 BUTTON_SCHEMA = CALL_SCHEMA.extend({vol.Required(ATTR_BUTTON): cv.string})
@@ -61,16 +61,35 @@ COMMAND_SCHEMA = CALL_SCHEMA.extend(
 SOUND_OUTPUT_SCHEMA = CALL_SCHEMA.extend({vol.Required(ATTR_SOUND_OUTPUT): cv.string})
 
 SERVICE_TO_METHOD = {
-    SERVICE_BUTTON: ServiceMethodDetails(method="async_button", schema=BUTTON_SCHEMA),
+    SERVICE_BUTTON: ServiceMethodDetails(method="async_button", schema=BUTTON_SCHEMA, supports_response=SupportsResponse.NONE),
     SERVICE_COMMAND: ServiceMethodDetails(
-        method="async_command", schema=COMMAND_SCHEMA
+        method="async_command", schema=COMMAND_SCHEMA, supports_response=SupportsResponse.ONLY,
     ),
     SERVICE_SELECT_SOUND_OUTPUT: ServiceMethodDetails(
         method="async_select_sound_output",
         schema=SOUND_OUTPUT_SCHEMA,
+        supports_response=SupportsResponse.NONE,
     ),
 }
 
+
+async def async_button(client, button: str) -> None:
+    """Send a button press."""
+    return await client.button(button)
+
+async def async_command(client, command: str, **kwargs: Any):
+    """Send a command."""
+    return await client.request(command, payload=kwargs.get(ATTR_PAYLOAD))
+
+async def async_select_sound_output(client, sound_output: str) -> None:
+    """Select the sound output."""
+    return await client.change_sound_output(sound_output)
+
+methods = {
+    'async_button': async_button,
+    'async_command': async_command,
+    'async_select_sound_output': async_select_sound_output,
+}
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -102,13 +121,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_service_handler(service: ServiceCall) -> None:
         method = SERVICE_TO_METHOD[service.service]
-        data = service.data.copy()
-        data["method"] = method.method
-        async_dispatcher_send(hass, DOMAIN, data)
+
+        params = {
+            key: value for key, value in service.data.items() if key != ATTR_ENTITY_ID
+        }
+
+        target_players = hass.data[DOMAIN][DATA_CONFIG_ENTRY]
+        if target_players:
+            params["client"] = next(iter(target_players.values()))  # Get the first player
+            return await methods.get(method.method)(**params)
+        raise Exception("No player found!")
 
     for service, method in SERVICE_TO_METHOD.items():
         hass.services.async_register(
-            DOMAIN, service, async_service_handler, schema=method.schema
+            DOMAIN, service, async_service_handler, schema=method.schema, supports_response=method.supports_response
         )
 
     hass.data[DOMAIN][DATA_CONFIG_ENTRY][entry.entry_id] = client

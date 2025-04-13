@@ -41,6 +41,7 @@ from . import update_client_key
 from .const import (
     ATTR_PAYLOAD,
     ATTR_SOUND_OUTPUT,
+    ATTR_BACKLIGHT_LEVEL,
     CONF_SOURCES,
     DATA_CONFIG_ENTRY,
     DOMAIN,
@@ -196,6 +197,10 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
         if self._client.volume is not None:
             self._attr_volume_level = cast(float, self._client.volume / 100.0)
 
+        self._attr_backlight_level = None
+        if self._client.backlight is not None:
+            self._attr_backlight_level = cast(int, self._client.backlight)
+
         self._attr_source = self._current_source
         self._attr_source_list = sorted(self._source_list)
 
@@ -261,11 +266,11 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
             if model := self._client.system_info.get("modelName"):
                 self._attr_device_info["model"] = model
 
-        self._attr_extra_state_attributes = {}
+        self._attr_extra_state_attributes = { }
+        if self._attr_backlight_level is not None:
+            self._attr_extra_state_attributes[ATTR_BACKLIGHT_LEVEL] = self._attr_backlight_level
         if self._client.sound_output is not None or self.state != MediaPlayerState.OFF:
-            self._attr_extra_state_attributes = {
-                ATTR_SOUND_OUTPUT: self._client.sound_output
-            }
+            self._attr_extra_state_attributes[ATTR_SOUND_OUTPUT] = self._client.sound_output
 
     def _update_sources(self) -> None:
         """Update list of sources from current source, apps, inputs and configured list."""
