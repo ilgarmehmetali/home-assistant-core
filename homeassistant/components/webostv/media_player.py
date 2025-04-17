@@ -37,6 +37,7 @@ from .const import (
     ATTR_BUTTON,
     ATTR_PAYLOAD,
     ATTR_SOUND_OUTPUT,
+    ATTR_BACKLIGHT,
     CONF_SOURCES,
     DOMAIN,
     LIVE_TV_APP_ID,
@@ -224,6 +225,10 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
         if tv_state.volume is not None:
             self._attr_volume_level = tv_state.volume / 100.0
 
+        self._attr_backlight_level = None
+        if tv_state.backlight is not None:
+            self._attr_backlight_level = cast(int, tv_state.backlight)
+
         self._attr_source = self._current_source
         self._attr_source_list = sorted(self._source_list)
 
@@ -289,11 +294,11 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
             if serial_number := tv_info.system.get("serialNumber"):
                 self._attr_device_info["serial_number"] = serial_number
 
-        self._attr_extra_state_attributes = {}
+        self._attr_extra_state_attributes = {
+            ATTR_BACKLIGHT: self._attr_backlight_level
+        }
         if tv_state.sound_output is not None or self.state != MediaPlayerState.OFF:
-            self._attr_extra_state_attributes = {
-                ATTR_SOUND_OUTPUT: tv_state.sound_output
-            }
+            self._attr_extra_state_attributes[ATTR_SOUND_OUTPUT] = tv_state.sound_output
 
     def _update_sources(self) -> None:
         """Update list of sources from current source, apps, inputs and configured list."""

@@ -16,6 +16,7 @@ ATTR_BUTTON = "button"
 ATTR_CONFIG_ENTRY_ID = "entry_id"
 ATTR_PAYLOAD = "payload"
 ATTR_SOUND_OUTPUT = "sound_output"
+ATTR_BACKLIGHT = "backlight"
 
 CONF_ON_ACTION = "turn_on_action"
 CONF_SOURCES = "sources"
