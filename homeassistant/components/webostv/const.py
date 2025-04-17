@@ -15,6 +15,7 @@ DEFAULT_NAME = "LG webOS TV"
 ATTR_BUTTON = "button"
 ATTR_PAYLOAD = "payload"
 ATTR_SOUND_OUTPUT = "sound_output"
+ATTR_BACKLIGHT = "backlight"
 
 CONF_ON_ACTION = "turn_on_action"
 CONF_SOURCES = "sources"
